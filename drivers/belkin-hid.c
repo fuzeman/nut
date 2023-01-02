@@ -25,6 +25,7 @@
  */
 
 #include "main.h"     /* for getval() */
+#include "hidparser.h" /* for FindObject_with_ID_Node() */
 #include "usbhid-ups.h"
 #include "belkin-hid.h"
 #include "usb-common.h"
@@ -633,6 +634,133 @@ static int belkin_claim(HIDDevice_t *hd)
 	}
 }
 
+static int belkin_fix_report_desc(HIDDevice_t *pDev, HIDDesc_t *pDesc_arg) {
+	HIDData_t *pData;
+	int res = 0;
+
+	int vendorID = pDev->VendorID;
+	int productID = pDev->ProductID;
+	if (vendorID != LIEBERT_VENDORID || productID != 0x0000) {
+		return 0;
+	}
+
+	upsdebugx(3, "Attempting Report Descriptor fix for UPS: Vendor: %04x, Product: %04x", vendorID, productID);
+
+	if ((pData=FindObject_with_ID_Node(pDesc_arg, 0x05, USAGE_POW_VOLTAGE))) {
+		long logmin = pData->LogMin;
+		long logmax = pData->LogMax;
+		upsdebugx(4, "Report Descriptor: voltage LogMin: %ld LogMax: %ld",
+				logmin, logmax);
+
+		if (logmax == 1) {
+			pData->LogMax = 255;
+
+			upsdebugx(3, "Fixing Report Descriptor. Set voltage LogMax = %ld",
+						pData->LogMax);
+			res = 1;
+		}
+	}
+
+	if ((pData=FindObject_with_ID_Node(pDesc_arg, 0x05, USAGE_POW_CONFIG_VOLTAGE))) {
+		long logmin = pData->LogMin;
+		long logmax = pData->LogMax;
+		upsdebugx(4, "Report Descriptor: configVoltage LogMin: %ld LogMax: %ld",
+				logmin, logmax);
+
+		if (logmax == 1) {
+			pData->LogMax = 255;
+
+			upsdebugx(3, "Fixing Report Descriptor. Set configVoltage LogMax = %ld",
+						pData->LogMax);
+			res = 1;
+		}
+	}
+
+	if ((pData=FindObject_with_ID_Node(pDesc_arg, 0x51, USAGE_POW_UNDEFINED))) {
+		long logmin = pData->LogMin;
+		long logmax = pData->LogMax;
+		upsdebugx(4, "Report Descriptor: inputVoltage LogMin: %ld LogMax: %ld",
+				logmin, logmax);
+
+		if (logmax == 1) {
+			pData->LogMax = 255;
+			pData->Path.Node[1] = USAGE_POW_INPUT;
+			pData->Path.Node[2] = USAGE_POW_VOLTAGE;
+
+			upsdebugx(3, "Fixing Report Descriptor. Set inputVoltage LogMax = %ld",
+						pData->LogMax);
+			res = 1;
+		}
+	}
+
+	if ((pData=FindObject_with_ID_Node(pDesc_arg, 0x52, USAGE_POW_UNDEFINED))) {
+		long logmin = pData->LogMin;
+		long logmax = pData->LogMax;
+		upsdebugx(4, "Report Descriptor: inputVoltage LogMin: %ld LogMax: %ld",
+				logmin, logmax);
+
+		if (logmax == 1) {
+			pData->LogMax = 255;
+			pData->Path.Node[1] = USAGE_POW_INPUT;
+			pData->Path.Node[2] = USAGE_POW_VOLTAGE;
+
+			upsdebugx(3, "Fixing Report Descriptor. Set inputVoltage LogMax = %ld",
+						pData->LogMax);
+			res = 1;
+		}
+	}
+
+	if ((pData=FindObject_with_ID_Node(pDesc_arg, 0x54, USAGE_POW_UNDEFINED))) {
+		long logmin = pData->LogMin;
+		long logmax = pData->LogMax;
+		upsdebugx(4, "Report Descriptor: outputVoltage LogMin: %ld LogMax: %ld",
+				logmin, logmax);
+
+		if (logmax == 1) {
+			pData->LogMax = 255;
+			pData->Path.Node[1] = USAGE_POW_OUTPUT;
+			pData->Path.Node[2] = USAGE_POW_VOLTAGE;
+
+			upsdebugx(3, "Fixing Report Descriptor. Set outputVoltage LogMax = %ld",
+						pData->LogMax);
+			res = 1;
+		}
+	}
+
+	if ((pData=FindObject_with_ID_Node(pDesc_arg, 0x55, USAGE_POW_UNDEFINED))) {
+		long logmin = pData->LogMin;
+		long logmax = pData->LogMax;
+		upsdebugx(4, "Report Descriptor: outputVoltage LogMin: %ld LogMax: %ld",
+				logmin, logmax);
+
+		if (logmax == 1) {
+			pData->LogMax = 255;
+			pData->Path.Node[1] = USAGE_POW_OUTPUT;
+			pData->Path.Node[2] = USAGE_POW_VOLTAGE;
+
+			upsdebugx(3, "Fixing Report Descriptor. Set outputVoltage LogMax = %ld",
+						pData->LogMax);
+			res = 1;
+		}
+	}
+
+	if ((pData=FindObject_with_ID_Node(pDesc_arg, 0x57, USAGE_POW_UNDEFINED))) {
+		pData->Offset = 16;
+		pData->Size = 16;
+		pData->LogMax = 32767;
+		pData->PhyMax = 0;
+		pData->PhyMax = pData->LogMax * 60;
+		pData->Path.Node[2] = USAGE_BAT_RUN_TIME_TO_EMPTY;
+		pData->have_PhyMin = 1;
+		pData->have_PhyMax = 1;
+
+		upsdebugx(3, "Fixing Report Descriptor. Set runTimeToEmpty Offset = %ld, Size = %ld, LogMax = %ld, PhyMax = %ld",
+					pData->Offset, pData->Size, pData->LogMax, pData->PhyMax);
+		res = 1;
+	}
+	return res;
+}
+
 subdriver_t belkin_subdriver = {
 	BELKIN_HID_VERSION,
 	belkin_claim,
@@ -641,5 +769,5 @@ subdriver_t belkin_subdriver = {
 	belkin_format_model,
 	belkin_format_mfr,
 	belkin_format_serial,
-	fix_report_desc,
+	belkin_fix_report_desc,
 };
